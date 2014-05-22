@@ -16,7 +16,7 @@ final public class FlagObserver
     //! Own player information
     AiPlayerInfo m_ownPlayer = null;
     // Own bot instance
-    CaptainObvious m_controller;
+    GeneralPurpose m_controller;
     
     /**
      * Creates a new empty flag observer for a given number of flags
@@ -26,7 +26,7 @@ final public class FlagObserver
      * @param ownPlayer Instance of player information
      * @param bot Instance of our bot
      */
-    public FlagObserver( int numFlags, AiPlayerInfo ownPlayer, CaptainObvious bot, ActionLocker locker )
+    public FlagObserver( int numFlags, AiPlayerInfo ownPlayer, GeneralPurpose bot, ActionLocker locker )
     {
         assert numFlags >= 0 : "Number of flags cannot be negative";
         assert locker != null : "ActionLocker reference should not be null";

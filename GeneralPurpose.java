@@ -26,7 +26,7 @@ import core.player.PlayerController;
  * 
  * @author Oskar Kirmis <kirmis@st.ovgu.de>
  */
-public class CaptainObvious extends PlayerController 
+public class GeneralPurpose extends PlayerController 
 // implements FlagStatusHandler cannot be used because of stupid PlayerClassLoader behaviour
 {
 
@@ -75,7 +75,7 @@ public class CaptainObvious extends PlayerController
 	 */
 	public String getName( )
 	{
-		return "CaptainObvious";
+		return "GeneralPurpose";
 	}
 
 	/**
