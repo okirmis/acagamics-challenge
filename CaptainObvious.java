@@ -76,7 +76,7 @@ public class CaptainObvious extends PlayerController
 	 */
 	public String getName( )
 	{
-		return "Kernel Panic";
+		return "CaptainObvious";
 	}
 
 	/**
@@ -133,7 +133,8 @@ public class CaptainObvious extends PlayerController
 	public Vector think( AiMapInfo map, AiPlayerInfo ownPlayer )
 	{
 	    // Update internal representation of the world
-		m_cache.reset( map );
+	    m_player = ownPlayer;
+	    m_cache.reset( map );
 		m_locker.tick();
 		m_observer.update( map.getFlags(), ownPlayer );
 
@@ -258,11 +259,22 @@ public class CaptainObvious extends PlayerController
 	    
 		Vector m = Vector.ZERO();
 		
-		AiZombieInfo[] zombies =  m_cache.getZombiesInRange( m_player.getPosition(),
-                (int)ZombieConstants.MAX_PLAYER_VOLUME_RADIUS );
 		
-		for( int i = 0; i < zombies.length; ++i )
-			m.addReference( zombies[ i ].getPosition().sub( m_player.getPosition() ) );
+		int numZombies = m_cache.getZombiesInRange( m_player.getPosition(),
+                (int)ZombieConstants.MAX_PLAYER_VOLUME_RADIUS ).length;
+		
+		Vector[] k = new Vector[ numZombies ];
+		for( int i = 0; i < numZombies; ++i )
+		{
+		    k[ i ] = m_vectorsToZombies[ i ];
+		    for( int j = 0; j < m_vectorsToZombies.length; ++j )   
+		        if( k[ i ].length() > m_vectorsToZombies[ j ].length() )
+		            k[ i ] = m_vectorsToZombies[ j ];
+		}
+
+
+		for( int i = 0; i < numZombies; ++i )
+		    m.addReference( k[ i ] );
 			
 		return m.getNoramlized();
 	}
