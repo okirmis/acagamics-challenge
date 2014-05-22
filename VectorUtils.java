@@ -8,7 +8,7 @@ import core.Vector;
  * @note As all methods of this class are static, there shouldn't
  * 		 be any instance of it
  * 
- * @author Oskar Kirmis
+ * @author Oskar Kirmis <kirmis@st.ovgu.de>
  */
 public class VectorUtils
 {

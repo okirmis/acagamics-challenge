@@ -2,7 +2,8 @@ import core.Vector;
 
 /**
  * Basic class to test various classes of this package
- * @author Oskar Kirmis
+ * 
+ * @author Oskar Kirmis <kirmis@st.ovgu.de>
  */
 public class Testing {
 

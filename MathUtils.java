@@ -5,7 +5,7 @@ import core.Vector;
  * for easy vector handling in bots. An instantiation is not
  * required because all methods are static.
  * 
- * @author Oskar Kirmis
+ * @author Oskar Kirmis <kirmis@st.ovgu.de>
  */
 final public class MathUtils {
 

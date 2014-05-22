@@ -6,16 +6,14 @@ import core.ai.AiZombieInfo;
 import core.constants.ZombieConstants;
 import core.player.PlayerController;
 
-/*
- * The following comments are instructions for java-bind tool if
- * we only want to deliver a single source code file
- */
+//#comment The following comments are instructions for java-bind tool if
+//#comment we only want to deliver a single source code file.
+
 //#include MathUtils.java
 //#include VectorUtils.java
 //#include ActionLocker.java
 //#include ZombiesInRangeCache.java
-//#include FlagStatusHandlerInterface.java
-//#include ObviousFlagHandler.java
+//#include FlagStatusHandler.java
 //#include FlagObserver.java
 
 
@@ -26,9 +24,10 @@ import core.player.PlayerController;
  * bot itself. It uses the classes above to avoid unintended
  * behavior or speed computations up.
  * 
- * @author Oskar Kirmis
+ * @author Oskar Kirmis <kirmis@st.ovgu.de>
  */
-public class CaptainObvious extends PlayerController
+public class CaptainObvious extends PlayerController 
+// implements FlagStatusHandler cannot be used because of stupid PlayerClassLoader behaviour
 {
 
 	//! Vectors pointing from players current position to the flags
@@ -133,47 +132,50 @@ public class CaptainObvious extends PlayerController
 	public Vector think( AiMapInfo map, AiPlayerInfo ownPlayer )
 	{
 	    // Update internal representation of the world
-	    m_player = ownPlayer;
-	    m_cache.reset( map );
-		m_locker.tick();
-		m_observer.update( map.getFlags(), ownPlayer );
-
-		updateFlagInformation( map.getFlags() );
-		updateZombieInformation( map.getZombies() );
-		
+	    updateWorld( map.getZombies(), map.getFlags(),
+	                 ownPlayer, map );		
 		
 		// calculate reaction based on the environment
 		calculateMovementSpeed();
 		calculateMovements( map );
 		
-		return calculateMovement();
+		return createMovement();
 	}
 	
 
 	/**
-	 * Calculate vectors from the bot's position to the zombies
+	 * Calculate vectors from the bot's position to the zombies and flags
+	 * and reset internal helpers (cache, locks, ...)
 	 * @param zombies Zombies to calculate the vectors for
+     * @param flags Flags to calculate the vectors for
 	 */
-	private void updateZombieInformation( AiZombieInfo[] zombies )
+	private void updateWorld( AiZombieInfo[] zombies, AiFlagInfo[] flags,
+	                          AiPlayerInfo ownPlayer, AiMapInfo map )
 	{
+	    m_player = ownPlayer;
+	    
+	    // Clean and rebuild cache
+	    m_cache.reset( map );
+	    
+	    // Decrease lock counters...
+	    m_locker.tick();
+	    
+	    // Let the observer handle the new environment
+	    m_observer.update( map.getFlags(), ownPlayer );
+	    
         Vector ownPosition = m_player.getPosition();
+        
+        // zombie vector update
 		m_vectorsToZombies = new Vector[ zombies.length ];
 		for( int i = 0; i < zombies.length; i++ )
 			m_vectorsToZombies[ i ] = zombies[ i ].getPosition().sub( ownPosition );
-	}
-	
-    /**
-     * Calculate vectors from the bot's position to the flags ( = targets )
-     * @param flags Flags to calculate the vectors for
-     */
-	private void updateFlagInformation( AiFlagInfo[] flags )
-	{
-	    Vector ownPosition = m_player.getPosition();
+		
+		// flag vector update
 		m_vectorsToFlags = new Vector[ flags.length ];
 		for( int i = 0; i < flags.length; i++ )
-			m_vectorsToFlags[ i ] = flags[ i ].getPosition().sub( ownPosition );
+		    m_vectorsToFlags[ i ] = flags[ i ].getPosition().sub( ownPosition );
 	}
-	
+		
 	/**
 	 * Choose a flag where not so many zombies are, but which
 	 * is also near us.
@@ -201,7 +203,7 @@ public class CaptainObvious extends PlayerController
 					// Flag is safe? Epic -> use it (because it is [currently] the nearest one)
 					if( m_cache.getZombiesInRange(
 							flags[ i ].getPosition(),
-							(int)( ZombieConstants.FLAG_CONQUER_VOLUME_RADIUS / m_greediness  ) ).length <= 1 )
+							(int)( ZombieConstants.FLAG_CONQUER_VOLUME_RADIUS / m_greediness  ) ).length < 2 )
 					{
 						k   = flags[ i ].getPosition();
 						min = k.euclideanDistance( ownPos );
@@ -234,12 +236,17 @@ public class CaptainObvious extends PlayerController
 	private void calculateMovements( AiMapInfo map )
 	{
 		m_target = chooseTarget( map ).getNoramlized();
+		
+		// ...because of null-vector-flag-normalization-problem...
 		if( new Float( m_target.x + m_target.y ).isNaN() )
 			m_target = Vector.ZERO();
 		
+		// importance of flag capturing...
         m_target.mult( m_greediness );
         
 		m_escapeMovement = createEscapeVector( map ).getNoramlized();
+
+		// ...because of null-vector-flag-normalization-problem...        
 		if( new Float( m_escapeMovement.x + m_escapeMovement.y ).isNaN() )
 		    m_escapeMovement = Vector.ZERO();
 	}
@@ -248,40 +255,51 @@ public class CaptainObvious extends PlayerController
 	 * Get a vector which describes the escape direction from
 	 * the zombies.
 	 * 
+	 * @note The vector returned is pointing towards the
+	 *       zombies ( -> don't forget *(-1) )
+	 * 
 	 * @param map Current game situation information
 	 * @return Vector for escape movement
 	 */
 	private Vector createEscapeVector( AiMapInfo map )
 	{
+	    // Update escape relevance
         m_escapeFactor = ( map.getAllOwnedFlags( m_player ).length * Math.max( 1, m_cache.getZombiesInRange( m_player.getPosition(),
                 (int)ZombieConstants.MAX_PLAYER_VOLUME_RADIUS ).length ) )
                 / map.getNumFlags();
 	    
+        
 		Vector m = Vector.ZERO();
-		
 		
 		int numZombies = m_cache.getZombiesInRange( m_player.getPosition(),
                 (int)ZombieConstants.MAX_PLAYER_VOLUME_RADIUS ).length;
 		
 		Vector[] k = new Vector[ numZombies ];
+		
+		// TODO: Still has minor bugs...!
 		for( int i = 0; i < numZombies; ++i )
 		{
 		    k[ i ] = m_vectorsToZombies[ i ];
-		    for( int j = 0; j < m_vectorsToZombies.length; ++j )   
+		    for( int j = 0; j < map.getNumZombies(); ++j )
+		        // Found zombie which is nearer?
 		        if( k[ i ].length() > m_vectorsToZombies[ j ].length() )
 		            k[ i ] = m_vectorsToZombies[ j ];
 		}
 
 
+		// Create escape vector by adding the single escape vectors
 		for( int i = 0; i < numZombies; ++i )
 		    m.addReference( k[ i ] );
-			
+		
 		return m.getNoramlized();
 	}
 	
 	/**
 	 * This method might later be used to create a vector to force escape
 	 * from the zombies.
+	 * 
+     * @note The vector returned is pointing towards the
+     *       zombies ( -> don't forget *(-1) )
 	 * 
 	 * @return Escape vector
 	 */
@@ -290,14 +308,18 @@ public class CaptainObvious extends PlayerController
 	{
 	    Vector m = Vector.ZERO();
 	    
-	    AiZombieInfo[] zombies = m_cache.getZombiesInRange( m_player.getPosition(),
-	                                                        (int)Math.max( ZombieConstants.MAX_PLAYER_VOLUME_RADIUS / 4.0f,
-	                                                                  m_player.getCurrentNoiseRadius() * 2.0f ) );
+	    // Escape from zombies in critical range
+	    AiZombieInfo[] zombies = m_cache.getZombiesInRange( 
+	                                    m_player.getPosition(),
+                                        (int)Math.max( ZombieConstants.MAX_PLAYER_VOLUME_RADIUS / 4.0f,
+                                        m_player.getCurrentNoiseRadius() * 2.0f 
+                                    ) );
 	    
+	    // Create escape vector
 	    for( int i = 0; i < zombies.length; ++i )
 	        m.addReference( zombies[ i ].getPosition().sub( m_player.getPosition() ) );
 	    
-	    return m.mult( -1 );
+	    return m;
 	}
 
 
@@ -308,13 +330,15 @@ public class CaptainObvious extends PlayerController
      * 
      * @return The vector which will be the result of think()
      */
-	public Vector calculateMovement( )
+	private Vector createMovement( )
 	{
 	    Vector m = m_target.add( m_escapeMovement.mult( -1.0f ) ).getNoramlized();
 	    
+	    // Avoid normalization-of-null-vector-problem
 	    if( new Float( m.x + m.y ).isNaN() )
 			m = new Vector( 0, 0 );
-		
+
+	    // Set length of vector to desired speed
 		return m.multReference( m_currentSpeed );
 	}
 	
@@ -379,6 +403,7 @@ public class CaptainObvious extends PlayerController
         
         for( int i = 0; i < flags.length; ++i )
         {
+            // Avoid comparison to captured flag ( distance == 0 )
             if( i == flagIndex )
                 continue;
             
@@ -386,7 +411,7 @@ public class CaptainObvious extends PlayerController
             if( distance < minDist && flags[ i ].getCurrentOwnerIndex() != index )
             {
 
-                // Can we reach the flag?
+                // Can the bottle reach the flag in time?
                 if( m_player.getPosition().sub( flags[ nearestFlag ].getPosition() ).length() / ZombieConstants.BOTTLE_SPEED
                         < minDist / ZombieConstants.MAX_PLAYER_SPEED + 25 )
                 {
@@ -396,11 +421,11 @@ public class CaptainObvious extends PlayerController
             }
         }
         
-        // Bottle to players "next flag"
-        if( m_player.getPosition().sub( flags[ nearestFlag ].getPosition() ).length() / ZombieConstants.BOTTLE_SPEED
-                < minDist / ZombieConstants.MAX_PLAYER_SPEED + 25 )
+        // Bottle to player's "next flag"
+        if( minDist < Float.MAX_VALUE )
         {
             throwBottle( flags[ nearestFlag ].getPosition() );
+            // Avoid throwing a bottle in next 10 steps
             m_locker.lock( ActionLocker.ACTION_THROW_BOTTLE, 10 );
         }
     }
