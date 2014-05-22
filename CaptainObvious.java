@@ -6,6 +6,10 @@ import core.ai.AiZombieInfo;
 import core.constants.ZombieConstants;
 import core.player.PlayerController;
 
+/*
+ * The following comments are instructions for java-bind tool if
+ * we only want to deliver a single source code file
+ */
 //#include MathUtils.java
 //#include VectorUtils.java
 //#include ActionLocker.java
@@ -38,9 +42,6 @@ public class CaptainObvious extends PlayerController
 	
 	//! Movement to escape from current position (because of zombies)
 	Vector m_escapeMovement;
-	
-	//! Final movement the think method returns
-	Vector m_movement = Vector.ZERO();
 	
 	//! Factor to specify how "much" the bot tries to escpae
 	float m_escapeFactor  = 3.0f;
@@ -119,49 +120,69 @@ public class CaptainObvious extends PlayerController
 		m_player = ownPlayer;
 	}
 
+	/**
+	 * Core method called by the game to get the next action our bot will
+	 * perform.
+	 * 
+	 * @param map Global game situation
+	 * @param ownPlayer Information on our position etc.
+	 * 
+	 * @return Vector indicating the direction to move, length ~ speed
+	 */
 	@Override
 	public Vector think( AiMapInfo map, AiPlayerInfo ownPlayer )
 	{
+	    // Update internal representation of the world
 		m_cache.reset( map );
 		m_locker.tick();
 		m_observer.update( map.getFlags(), ownPlayer );
 
-		updateFlagInformation( map.getFlags(), ownPlayer, ownPlayer.getPosition() );
-		updateZombieInformation( map.getZombies(), ownPlayer, ownPlayer.getPosition() );
-		computeMovementSpeed( map, ownPlayer );
-		computeTargetMovement( map, ownPlayer );
-		computeEscapeMovement( m_cache.getZombiesInRange( ownPlayer.getPosition(),
-				(int)ZombieConstants.MAX_PLAYER_VOLUME_RADIUS ).length, map );
-		updateMovement();
-		return m_movement;
+		updateFlagInformation( map.getFlags() );
+		updateZombieInformation( map.getZombies() );
+		
+		
+		// calculate reaction based on the environment
+		calculateMovementSpeed();
+		calculateMovements( map );
+		
+		return calculateMovement();
 	}
 	
 
-	public void updateZombieInformation( AiZombieInfo[] zombies, AiPlayerInfo ownPlayer, Vector ownPosition )
+	/**
+	 * Calculate vectors from the bot's position to the zombies
+	 * @param zombies Zombies to calculate the vectors for
+	 */
+	private void updateZombieInformation( AiZombieInfo[] zombies )
 	{
+        Vector ownPosition = m_player.getPosition();
 		m_vectorsToZombies = new Vector[ zombies.length ];
 		for( int i = 0; i < zombies.length; i++ )
-		{
-			m_vectorsToZombies[ i ] = zombies[ i ].getPosition().sub(
-					ownPosition );
-		}
+			m_vectorsToZombies[ i ] = zombies[ i ].getPosition().sub( ownPosition );
 	}
 	
-	public void updateFlagInformation( AiFlagInfo[] flags, AiPlayerInfo ownPlayer, Vector ownPosition )
+    /**
+     * Calculate vectors from the bot's position to the flags ( = targets )
+     * @param flags Flags to calculate the vectors for
+     */
+	private void updateFlagInformation( AiFlagInfo[] flags )
 	{
-		m_capturedFlags  = 0;
+	    Vector ownPosition = m_player.getPosition();
 		m_vectorsToFlags = new Vector[ flags.length ];
 		for( int i = 0; i < flags.length; i++ )
-		{
 			m_vectorsToFlags[ i ] = flags[ i ].getPosition().sub( ownPosition );
-			//if( flags[ i ].isOwner( ownPlayer ) )
-			//	++m_currentSpeed;
-		}
 	}
 	
-	public Vector findNextSafeFlag( AiMapInfo map, AiPlayerInfo ownPlayer )
+	/**
+	 * Choose a flag where not so many zombies are, but which
+	 * is also near us.
+	 * 
+	 * @param map Global game situation information
+	 * @return Position of the flag ( = our target ) where to go
+	 */
+	private Vector chooseTarget( AiMapInfo map )
 	{
-		Vector ownPos = ownPlayer.getPosition();
+		Vector ownPos = m_player.getPosition();
 		AiFlagInfo[] flags = map.getFlags();
 		
 		// Next safe flag characteristics
@@ -174,7 +195,7 @@ public class CaptainObvious extends PlayerController
 			{
 				// Only look at flags which are currently not locked ( == visited short time ago)
 				if( !m_locker.isLocked( ActionLocker.ACTION_OWNED_FLAGS + i ) &&
-						!flags[ i ].isOwner( ownPlayer ) )
+						!flags[ i ].isOwner( m_player ) )
 				{
 					// Flag is safe? Epic -> use it (because it is [currently] the nearest one)
 					if( m_cache.getZombiesInRange(
@@ -193,59 +214,67 @@ public class CaptainObvious extends PlayerController
 		return k.sub( ownPos ).getNoramlized();
 	}
 	
-	public void computeMovementSpeed( AiMapInfo map, AiPlayerInfo ownPlayer )
+	/**
+	 * Adjust speed so that the zombie which is nearest to us can't hear us.
+	 */
+	private void calculateMovementSpeed()
 	{
 		m_currentSpeed = VectorUtils.getMinimum( m_vectorsToZombies ).length()
 				/ ( ZombieConstants.MAX_PLAYER_VOLUME_RADIUS + 1 );
 	}
 
-	public void computeTargetMovement( AiMapInfo map, AiPlayerInfo ownPlayer )
+	/**
+	 * Update movements towards the target and away from the zombies.
+	 * @see chooseTarget()
+	 * @see createEscapeVector()
+	 * 
+	 * @param map Current game situation
+	 */
+	private void calculateMovements( AiMapInfo map )
 	{
-		m_target = findNextSafeFlag( map, ownPlayer );
-		m_target.normalize();
-		m_target.mult( m_greediness );
-		if(new Float( m_target.x + m_target.y ).isNaN())
-		{
-			m_target = new Vector( 0, 0 );
-		}
-	}
-
-	public void computeEscapeMovement( int n, AiMapInfo map )
-	{
-		m_escapeMovement = updateEscapeVector( m_vectorsToZombies, map, n );
-		m_escapeMovement.normalize();
-		m_escapeMovement.mult( m_escapeFactor );
-		if(new Float( m_escapeMovement.x + m_escapeMovement.y ).isNaN())
-		{
-			m_escapeMovement = new Vector( 0, 0 );
-		}
+		m_target = chooseTarget( map ).getNoramlized();
+		if( new Float( m_target.x + m_target.y ).isNaN() )
+			m_target = Vector.ZERO();
+		
+        m_target.mult( m_greediness );
+        
+		m_escapeMovement = createEscapeVector( map ).getNoramlized();
+		if( new Float( m_escapeMovement.x + m_escapeMovement.y ).isNaN() )
+		    m_escapeMovement = Vector.ZERO();
 	}
 	
-	public Vector updateEscapeVector( Vector[] vec, AiMapInfo map, int numZombiesInRange )
+	/**
+	 * Get a vector which describes the escape direction from
+	 * the zombies.
+	 * 
+	 * @param map Current game situation information
+	 * @return Vector for escape movement
+	 */
+	private Vector createEscapeVector( AiMapInfo map )
 	{
-        m_escapeFactor = ( m_capturedFlags * Math.max( 1, m_cache.getZombiesInRange( m_player.getPosition(),
+        m_escapeFactor = ( map.getAllOwnedFlags( m_player ).length * Math.max( 1, m_cache.getZombiesInRange( m_player.getPosition(),
                 (int)ZombieConstants.MAX_PLAYER_VOLUME_RADIUS ).length ) )
                 / map.getNumFlags();
 	    
 		Vector m = Vector.ZERO();
 		
-		Vector[] k = new Vector[ numZombiesInRange ];
-		for( int i = 0; i < numZombiesInRange; ++i )
-		{
-			k[ i ] = vec[ i ];
-			for( int j = 0; j < vec.length; ++j )
-
-				if( k[ i ].length() > vec[ j ].length() )
-					k[ i ] = vec[ j ];
-		}
+		AiZombieInfo[] zombies =  m_cache.getZombiesInRange( m_player.getPosition(),
+                (int)ZombieConstants.MAX_PLAYER_VOLUME_RADIUS );
 		
-		for( int i = 0; i < numZombiesInRange; ++i )
-			m.addReference( k[ i ] );
+		for( int i = 0; i < zombies.length; ++i )
+			m.addReference( zombies[ i ].getPosition().sub( m_player.getPosition() ) );
 			
 		return m.getNoramlized();
 	}
 	
-	public Vector emergencyEscape( )
+	/**
+	 * This method might later be used to create a vector to force escape
+	 * from the zombies.
+	 * 
+	 * @return Escape vector
+	 */
+	@SuppressWarnings("unused")
+    private Vector emergencyEscape( )
 	{
 	    Vector m = Vector.ZERO();
 	    
@@ -259,14 +288,22 @@ public class CaptainObvious extends PlayerController
 	    return m.mult( -1 );
 	}
 
-	public void updateMovement( )
+
+    /**
+     * Get sum of target and escape movement at calculated speed
+     * @see calculateMovementSpeed
+     * @see calculateMovements
+     * 
+     * @return The vector which will be the result of think()
+     */
+	public Vector calculateMovement( )
 	{
-		m_movement = m_target.add( m_escapeMovement.mult( -1.0f ) ).getNoramlized();
-		m_movement = m_movement.mult( m_currentSpeed );
-		if(new Float( m_movement.x + m_movement.y ).isNaN())
-		{
-			m_movement = new Vector( 0, 0 );
-		}
+	    Vector m = m_target.add( m_escapeMovement.mult( -1.0f ) ).getNoramlized();
+	    
+	    if( new Float( m.x + m.y ).isNaN() )
+			m = new Vector( 0, 0 );
+		
+		return m.multReference( m_currentSpeed );
 	}
 	
 	

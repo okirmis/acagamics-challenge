@@ -65,14 +65,6 @@ public class VectorUtils
 			return Vector.ZERO();
 		
 		Vector result = v.mult( length / v.length() );
-		
-		/** \todo Comparing floats/doubles is EVIL! */
-		assert Math.abs( MathUtils.angleFromVector( v ) - MathUtils.angleFromVector( result ) ) < 0.0001 :
-									"Result vector doesn't have the requested direction: " +
-									    MathUtils.angleFromVector( v ) + " != " + MathUtils.angleFromVector( result );
-		assert Math.abs( result.length() - length ) < 0.0001 :
-									"Result vector doesn't have the requested length";
-		
 		return result;
 	}
 }
