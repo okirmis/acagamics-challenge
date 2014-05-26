@@ -1,6 +1,13 @@
 import core.ai.AiFlagInfo;
 
-
+/**
+ * This interface should have specified the methods to
+ * handle flag changes. But because of class loader restrictions,
+ * the bot cannot have any interfaces :(
+ * @unused
+ * 
+ * @author Oskar Kirmis <kirmis@st.ovgu.de>
+ */
 public interface FlagStatusHandler
 {
     /**

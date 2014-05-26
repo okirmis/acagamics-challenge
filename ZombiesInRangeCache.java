@@ -15,7 +15,7 @@ import core.ai.AiZombieInfo;
  * iterating over all zombies is not necessary every time.
  * 
  * @note This class is not required but it heavily improves the performance of
- *       Kernel Panic.
+ *       General Purpose.
  * 
  * @author Oskar Kirmis <kirmis@st.ovgu.de>
  */
@@ -64,6 +64,7 @@ final public class ZombiesInRangeCache
      * 
      * @param pos Position from where to check the zombies in the range
      * @param range The radius of the circle around the position where to check for zombies
+     * 
      * @return An array containing all zombies in the given range around the given position.
      */
     public AiZombieInfo[] getZombiesInRange( Vector pos, int range )
@@ -92,6 +93,7 @@ final public class ZombiesInRangeCache
             for( int i = 0; i < info.size(); ++i )
                 zbInfo[ i ] = info.get( i );
 
+            // Cache list until next update
             m_cache.put( key, zbInfo );
             
             return zbInfo;
@@ -104,6 +106,7 @@ final public class ZombiesInRangeCache
      * 
      * @param pos Position to get the key for
      * @param range Range to get the key for
+     * 
      * @return A unique key for the position and the range
      */
     private static String createKey( Vector pos, int range )

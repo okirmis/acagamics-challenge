@@ -35,13 +35,13 @@ final public class ActionLocker
     
     /**
      * Decrease all counters that are greater zero. This method should always
-     * called when the think-method is called.
+     * be called when the think-method is called.
      */
     public void tick()
     {
         for( int i = 0; i < this.m_registeredActions.length; ++i )
         {
-            // Decrease all counters that are greater zero
+            // Count down state for locked actions
             if( this.m_registeredActions[ i ] > 0 )
                 --this.m_registeredActions[ i ];
         }
@@ -60,12 +60,12 @@ final public class ActionLocker
         assert this.m_registeredActions[ actionID ] == 0  : "Couter for action " + actionID + " is not 0!";
         assert ticks >= 0                                 : "Invalid number of ticks: " + ticks;
         
-        // Set timer
+        // Set "timer"
         this.m_registeredActions[ actionID ] = ticks;
     }
     
     /**
-     * Check if the given action id is currently locked
+     * Check if the given action id currently is locked
      * 
      * @param actionID Id of the action to check
      * @return true, if the action is locked, false, if not

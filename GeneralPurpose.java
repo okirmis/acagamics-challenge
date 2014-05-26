@@ -6,8 +6,9 @@ import core.ai.AiZombieInfo;
 import core.constants.ZombieConstants;
 import core.player.PlayerController;
 
-//#comment The following comments are instructions for java-bind tool if
-//#comment we only want to deliver a single source code file.
+//#comment The following comments are instructions for our
+//#comment self-written java-bind tool if we only want to
+//#comment deliver a single source code file.
 
 //#include MathUtils.java
 //#include VectorUtils.java
@@ -117,6 +118,8 @@ public class GeneralPurpose extends PlayerController
 		
 		m_cache = new ZombiesInRangeCache();
 		m_player = ownPlayer;
+		
+		m_locker.lock( ActionLocker.ACTION_THROW_BOTTLE, 100 );
 	}
 
 	/**
@@ -413,7 +416,7 @@ public class GeneralPurpose extends PlayerController
 
                 // Can the bottle reach the flag in time?
                 if( m_player.getPosition().sub( flags[ nearestFlag ].getPosition() ).length() / ZombieConstants.BOTTLE_SPEED
-                        < minDist / ZombieConstants.MAX_PLAYER_SPEED + 25 )
+                        < minDist / ZombieConstants.MAX_PLAYER_SPEED + 10 )
                 {
                     minDist = distance;
                     nearestFlag = i;
@@ -425,8 +428,8 @@ public class GeneralPurpose extends PlayerController
         if( minDist < Float.MAX_VALUE )
         {
             throwBottle( flags[ nearestFlag ].getPosition() );
-            // Avoid throwing a bottle in next 10 steps
-            m_locker.lock( ActionLocker.ACTION_THROW_BOTTLE, 10 );
+            // Avoid throwing a bottle in next 50 steps
+            m_locker.lock( ActionLocker.ACTION_THROW_BOTTLE, 50 );
         }
     }
 

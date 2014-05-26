@@ -19,7 +19,6 @@ final public class MathUtils {
 	 */
 	public static double angleFromVector( Vector v )
 	{
-		// Precondition
 		assert v != null : "Null pointer given";
 		
 		// Special situation handling: +/- 90

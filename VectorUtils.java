@@ -64,7 +64,6 @@ public class VectorUtils
 		if( v.length() == 0 )
 			return Vector.ZERO();
 		
-		Vector result = v.mult( length / v.length() );
-		return result;
+		return v.mult( length / v.length() );
 	}
 }

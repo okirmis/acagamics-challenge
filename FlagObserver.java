@@ -2,8 +2,13 @@ import core.ai.AiFlagInfo;
 import core.ai.AiPlayerInfo;
 
 /**
- * This class watches flags for changes and handles
- * them, for example, by locking changed flags
+ * This class watches flags for changes and calles
+ * handlers of the bot.
+ * 
+ * The class reacts to the following events:
+ *    - a flag was freed
+ *    - a flag was captured by an other bot
+ *    - out bot captured a flag
  * 
  * @author Oskar Kirmis <kirmis@st.ovgu.de>
  */
@@ -43,7 +48,10 @@ final public class FlagObserver
     
     /**
      * Update the state of flags and handle the changes. Changes are
-     * detected by comparing the previous ownership index to the current one
+     * detected by comparing the previous ownership index to the current one.
+     * 
+     * By calling this method, the handlers of the bot instance are called
+     * if something changed.
      */
     public void update( AiFlagInfo[] flags, AiPlayerInfo ownPlayer )
     {
@@ -58,9 +66,10 @@ final public class FlagObserver
                 continue;
             
 
+            // No owner but change?
             if( oi == null )
             {
-                // Flag was freed
+                // -> flag was freed
                 m_controller.onFlagFreed( flags, i );
                 continue;
             }
